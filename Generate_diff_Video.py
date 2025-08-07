@@ -1,0 +1,39 @@
+import cv2
+import numpy as np
+
+project_directory = "D:\\Research\\Projects\\Project_31_Postdoc_Start\\Sitting_Still_Optics\\Test_Videos\\"
+cap = cv2.VideoCapture('D:\\Research\\Projects\\Project_31_Postdoc_Start\\Sitting_Still_Optics\\Test_Videos\\WIN_20250807_11_21_24_Pro.mp4')
+output_file = 'D:\\Research\\Projects\\Project_31_Postdoc_Start\\Sitting_Still_Optics\\Test_Videos\\WIN_20250807_11_21_24_Pro_processed.mp4'
+
+if not cap.isOpened():
+    print("Error: Could not open video file. ")
+else:
+    frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    print(f"Video props: Width = {frame_width}, Height = {frame_height}, FPS = {fps}")
+
+    ret,frame = cap.read()
+    frame_buf_0 = cv2.cvtColor(frame,cv2.COLOR_BGR2GRAY)
+    
+    #frame_reader = 1
+    #dif_array = list()
+
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    out = cv2.VideoWriter(output_file,fourcc,fps,(frame_width,frame_height))
+    
+    while True:
+        ret,frame = cap.read()
+        if not ret:
+            print("End of video stream. ")
+            break
+
+        frame = cv2.cvtColor(frame,cv2.COLOR_BGR2GRAY)
+        temp_diff = cv2.absdiff(frame,frame_buf_0)
+        temp_diff = cv2.cvtColor(temp_diff,cv2.COLOR_GRAY2BGR)
+
+        frame_buf_0 = frame
+        
+        frame_buf_0 = frame
+        out.write(temp_diff)
+    out.release()
