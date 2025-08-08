@@ -34,7 +34,7 @@ class TouchTask:
         #A list of stimuli will be created, so that motion_index will correspond to object 
         #at different heights. 
         
-        self.numStim = 100
+        self.numStim = 1000
         stim_ids = range(self.numStim)
         con(app,f"Created {self.numStim} stimuli. ")
         
@@ -55,6 +55,8 @@ class TouchTask:
         con(app,f"Final Sprite list len is {len(self.mySprites)}")
         self.SpriteLine = Sprite(1000,10,0,-270,fb=app.fb,depth=1,on=1,centerorigin=1)
         self.SpriteLine.fill((255,0,0))
+        self.SpriteBlock = Sprite(1000,132,0,-402,fb=app.fb,depth=1,on=1,centerorigin=1)
+        self.SpriteBlock.fill((40,120,40))
         
         self.MT = MotionDetector(0,640,480,30,10)
             
@@ -74,7 +76,7 @@ class TouchTask:
             ("Stim_size","10",is_int,"the size of the jumping fixation point"),
             
             ("Task Params", None, None),
-            ("Mapping_scale","25000",is_int,"The scale from motion_index to pixels on the screen. "),
+            ("Mapping_scale","2500",is_int,"The scale from motion_index to pixels on the screen. "),
             ("iti", "200", is_int, "Inter-trial interval"),
             #"stim_duration", "300", is_int, "Stimulus presentation time"),
             
@@ -126,9 +128,16 @@ class TouchTask:
         P = self.myTaskParams.check(mergewith=app.getcommon())
         params = self.myTaskParams.check()
         
-        while 1:
-            result,t = self._RunTrial(app,t)
-        
+        app.globals.dlist = DisplayList(app.fb) #dlist manage all elements that will be shown on the screen. 
+        app.globals.dlist.bg = self.params['bg_during']
+        app.globals.dlist.add(self.SpriteLine)
+        app.globals.dlist.add(self.SpriteBlock)
+        app.globals.dlist.update()
+        app.fb.flip()
+        while app.running == 1:
+            while app.paused == 1:
+                app.idlefn(1000)
+             result,t = self._RunTrial(app,t)
         return 1,t
         
     def _RunTrial(self,app,t):
@@ -140,16 +149,11 @@ class TouchTask:
         
         app.udpy.display(None)
         
-        app.globals.dlist = DisplayList(app.fb) #dlist manage all elements that will be shown on the screen. 
         
-        #Then start the trial. 
-        app.globals.dlist.bg = self.params['bg_during']
-        app.globals.dlist.add(self.SpriteLine)
-        app.globals.dlist.update()
         #app.fb.flip()
         
         t.reset()
-        con(app,f"len of mySpirtes = {len(self.mySprites)}")
+        #con(app,f"len of mySpirtes = {len(self.mySprites)}")
         
         MD,_ = self.MT.get_motion_index()
         Mapping_scale = self.params['Mapping_scale']
@@ -158,14 +162,14 @@ class TouchTask:
             show_id = self.numStim-1
         elif show_id <= 1:
             show_id = 1
-        con(app,f"show_id = {show_id}. ")
+        #con(app,f"show_id = {show_id}. ")
         
         self.mySprites[show_id].on()
         app.globals.dlist.add(self.mySprites[show_id])
         app.globals.dlist.update()
         app.fb.flip()
         
-        if show_id < 25: #threshold is drawn at (Mapping_scale * 25):
+        if show_id < 250: #threshold is drawn at (Mapping_scale * 25):
             con(app,"Giving reward...")
             clk_num = self.params['numdrops']
             while clk_num > 0:
@@ -177,6 +181,7 @@ class TouchTask:
             con(app,"Wrong, not giving reward")
             result = 0
         self.mySprites[show_id].off()
+        app.globals.dlist.delete(self.mySprites[show_id])
         app.idlefn(self.params['iti'])
 
         return result,t
