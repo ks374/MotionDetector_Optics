@@ -3,6 +3,7 @@ from pype import *
 import pygame as pg
 import numpy as np
 import random
+from MotionDetector import MotionDetector
 
 def RunSet(app):
     app.taskObject.RunSet(app)
@@ -20,7 +21,7 @@ class TouchTask:
     def __init__(self,app):
         self.createParamTable(app)
         self.app = app
-        self.mySprites = list() 
+        self.mySprites = list()
         self.stimid = list() 
         self.numStim = 0
         
@@ -30,26 +31,29 @@ class TouchTask:
         #A list of stimuli will be created, so that motion_index will correspond to object 
         #at different heights. 
         
-        ##########################SSTOPPEDHERE
-        stim_ids = range(100)
-        stim_ids = np.unique(stim_filenames)
         self.numStim = 100
-        con(app,f"Found {self.numStim} stimulus")
+        stim_ids = range(self.numStim)
+        con(app,f"Created {self.numStim} stimuli. ")
         
         #For N stimulus, we will have 5 sprites for each, the first one will be the 
         #top location and the other 4 will be listed from left to right in the bottom. 
         #Currently all positions are hardcoded. 
         Cur_id = 0
-        Top_pos = [(0,180)]
-        Bot_pos = [(-470,-180),(-170,-180),(170,-180),(470,-180)]
-        Pos_list = Top_pos + Bot_pos
-        for i in range(self.numStim):
-            for j in range(len(Pos_list)):
-                img = Sprite(1,1,Pos_list[j][0],Pos_list[j][1],fb=app.fb,depth=1,on=0,centerorigin=1,fname=stim_filenames[i])
-                self.mySprites.append(img)
-                self.stimid.append(Cur_id)
-                Cur_id += 1
+        Start_pos = (0,-540)
+        End_pos = (0,540)
+        Pos_list = [(0,y) for y in range(-540,540,round(1080/self.numStim))]
+        Stim_size = self.params['Stim_size']
+        for i in range(len(Pos_list)):
+            img = Sprite(Stim_size,Stim_size,Pos_list[i][0],Pos_list[i][1],fb=app.fb,depth=1,on=0,centerorigin=1)
+            img.fill((255,255,254))
+            self.mySprites.append(img)
+            self.stimid.append(Cur_id)
+            Cur_id += 1
         con(app,f"Final Sprite list len is {len(self.mySprites)}")
+        self.SpriteLine = Sprite(1000,10,0,-270,fb=app.fb,depth=1,on=1,centerorigin=1)
+        self.SpriteLine.fill((255,0,0))
+        
+        self.MT = MotionDetector(0,640,480,30,10)
             
         
     def createParamTable(self,app):
@@ -63,17 +67,16 @@ class TouchTask:
         
         self.myTaskParams = ParamTable(self.myTaskNotebook, (        
             ("Stim Presentation Params", None, None), 
-            ("bg_before", "(10, 10, 10)", is_color, "The background color before stimulus presentation"),            
             ("bg_during", "(10, 10, 10)", is_color, "The background color during stimulus presentation"),
-            ("stim_path", "/home/shapelab/.pyperc/Tasks/Kiani_Stimuli/300/", is_any, "Directory where stimuli are stored"),           
-
+            ("Stim_size","10",is_int,"the size of the jumping fixation point")
             
             ("Task Params", None, None),
-            ("iti", "1500", is_int, "Inter-trial interval"),
+            ("Mapping_scale","25000",is_int,"The scale from motion_index to pixels on the screen. ")
+            ("iti", "200", is_int, "Inter-trial interval"),
             #"stim_duration", "300", is_int, "Stimulus presentation time"),
             
             ("Reward Params", None, None),
-            ("numdrops", "8", is_int, "Number of juice drops")
+            ("numdrops", "2", is_int, "Number of juice drops")
             ), file=parfile)
 
     def cleanup(self):
@@ -136,33 +139,25 @@ class TouchTask:
         
         app.globals.dlist = DisplayList(app.fb) #dlist manage all elements that will be shown on the screen. 
         
-        app.globals.dlist.bg = self.params['bg_before']
-        app.globals.dlist.update()
-        app.fb.flip()
-        
         #Then start the trial. 
         app.globals.dlist.bg = self.params['bg_during']
+        app.globals.dlist.add(self.SpriteLine)
         app.globals.dlist.update()
+        app.fb.flip()
         
         t.reset()
-        app.idlefn(self.params['iti']-t.ms())
-        app.fb.flip()
-            
-        #Fetch a random stimulus. 
-        rand_pos_id = random.randint(1,4)
-        sprite_id = 5*(random.randint(1,10)-1)+rand_pos_id
-        self.mySprites[sprite_id].on()
-        app.globals.dlist.add(self.mySprites[sprite_id])
+        MD = self.MT.get_motion_index()
+        Mapping_scale = self.params['Mapping_scale']
+        show_id = round(MD/Mapping_scale)
+        if show_id > self.numStim:
+            show_id = self.numStim
+        
+        self.mySprites[show_id].on()
+        app.globals.dlist.add(self.mySprites[show_id])
         app.globals.dlist.update()
         app.fb.flip()
-        #app.udpy.display(app.globals.dlist)
-            
-        touch_x,touch_y = gettouch(wait=1)
-        self.mySprites[sprite_id].off()
-        app.globals.dlist.update()
-        app.fb.flip()
-        result = touch_check(touch_x,touch_y,rand_pos_id)
-        if result == 1:
+        
+        if show_id < 25 #threshold is drawn at (Mapping_scale * 25):
             con(app,"Giving reward...")
             clk_num = self.params['numdrops']
             while clk_num > 0:
@@ -171,4 +166,6 @@ class TouchTask:
                 clk_num -= 1
         else:
             con(app,"Wrong, not giving reward")
+        app.idlefn(self.params['iti'])
+
         return result,t

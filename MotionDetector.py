@@ -47,7 +47,10 @@ class MotionDetector:
             tuple: A tuple containing the motion index and the current frame.
                    Returns (None, None) if the frame could not be read.
         """
-        ret, frame = self.cap.read()
+        #ret, frame = self.cap.read()
+        for _ in range(5):
+            self.cap.grab()
+        ret,frame = self.cap.retrieve()
         if not ret:
             return None, None
             
