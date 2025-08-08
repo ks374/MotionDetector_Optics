@@ -3,6 +3,9 @@ from pype import *
 import pygame as pg
 import numpy as np
 import random
+
+
+import cv2# GAKU CHECKING
 from MotionDetector import MotionDetector
 
 def RunSet(app):
@@ -41,7 +44,7 @@ class TouchTask:
         Cur_id = 0
         Start_pos = (0,-540)
         End_pos = (0,540)
-        Pos_list = [(0,y) for y in range(-540,540,round(1080/self.numStim))]
+        Pos_list = [(0,y) for y in range(-540,540,int(1080/self.numStim))]
         Stim_size = self.params['Stim_size']
         for i in range(len(Pos_list)):
             img = Sprite(Stim_size,Stim_size,Pos_list[i][0],Pos_list[i][1],fb=app.fb,depth=1,on=0,centerorigin=1)
@@ -68,10 +71,10 @@ class TouchTask:
         self.myTaskParams = ParamTable(self.myTaskNotebook, (        
             ("Stim Presentation Params", None, None), 
             ("bg_during", "(10, 10, 10)", is_color, "The background color during stimulus presentation"),
-            ("Stim_size","10",is_int,"the size of the jumping fixation point")
+            ("Stim_size","10",is_int,"the size of the jumping fixation point"),
             
             ("Task Params", None, None),
-            ("Mapping_scale","25000",is_int,"The scale from motion_index to pixels on the screen. ")
+            ("Mapping_scale","25000",is_int,"The scale from motion_index to pixels on the screen. "),
             ("iti", "200", is_int, "Inter-trial interval"),
             #"stim_duration", "300", is_int, "Stimulus presentation time"),
             
@@ -143,29 +146,37 @@ class TouchTask:
         app.globals.dlist.bg = self.params['bg_during']
         app.globals.dlist.add(self.SpriteLine)
         app.globals.dlist.update()
-        app.fb.flip()
+        #app.fb.flip()
         
         t.reset()
-        MD = self.MT.get_motion_index()
+        con(app,f"len of mySpirtes = {len(self.mySprites)}")
+        
+        MD,_ = self.MT.get_motion_index()
         Mapping_scale = self.params['Mapping_scale']
         show_id = round(MD/Mapping_scale)
-        if show_id > self.numStim:
-            show_id = self.numStim
+        if show_id >= self.numStim:
+            show_id = self.numStim-1
+        elif show_id <= 1:
+            show_id = 1
+        con(app,f"show_id = {show_id}. ")
         
         self.mySprites[show_id].on()
         app.globals.dlist.add(self.mySprites[show_id])
         app.globals.dlist.update()
         app.fb.flip()
         
-        if show_id < 25 #threshold is drawn at (Mapping_scale * 25):
+        if show_id < 25: #threshold is drawn at (Mapping_scale * 25):
             con(app,"Giving reward...")
             clk_num = self.params['numdrops']
             while clk_num > 0:
                 app.reward(multiplier = 1)
                 app.idlefn(150)
                 clk_num -= 1
+            result = 1
         else:
             con(app,"Wrong, not giving reward")
+            result = 0
+        self.mySprites[show_id].off()
         app.idlefn(self.params['iti'])
 
         return result,t
