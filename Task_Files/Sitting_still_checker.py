@@ -31,13 +31,7 @@ class TouchTask:
         #at different heights. 
         
         ##########################SSTOPPEDHERE
-        stim_filenames = []
-        stim_ids = []
-        for file in os.listdir(stim_path):
-            if file.endswith('.png'):
-                stim_filenames.append(os.path.join(stim_path,file))
-        if len(stim_filenames)==0:
-            print('warning: no images loaded/n')
+        stim_ids = range(100)
         stim_ids = np.unique(stim_filenames)
         self.numStim = len(stim_ids)
         con(app,f"Found {self.numStim} stimulus")
