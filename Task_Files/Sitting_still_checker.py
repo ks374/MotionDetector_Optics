@@ -33,7 +33,7 @@ class TouchTask:
         ##########################SSTOPPEDHERE
         stim_ids = range(100)
         stim_ids = np.unique(stim_filenames)
-        self.numStim = len(stim_ids)
+        self.numStim = 100
         con(app,f"Found {self.numStim} stimulus")
         
         #For N stimulus, we will have 5 sprites for each, the first one will be the 
