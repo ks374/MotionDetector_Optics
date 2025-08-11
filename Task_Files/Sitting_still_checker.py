@@ -78,9 +78,10 @@ class TouchTask:
             ("Stim_size","10",is_int,"the size of the jumping fixation point"),
             
             ("Task Params", None, None),
-            ("Mapping_scale","2500",is_int,"The scale from motion_index to pixels on the screen. "),
+            ("Mapping_scale","2500",is_int,"The scale from motion_index to upward acceleration. "),
             ("iti", "200", is_int, "Inter-trial interval"),
             ("Reward_delay_length","2",is_int,"The monkey have to sit still for this many rounds to get reward"),
+            ("Downward_acc","1",is_float,"Downward accelleration of the object"),
             #"stim_duration", "300", is_int, "Stimulus presentation time"),
             
             ("Reward Params", None, None),
@@ -140,6 +141,9 @@ class TouchTask:
         app.globals.dlist.add(self.SpriteBlock)
         app.globals.dlist.update()
         app.fb.flip()
+        
+        self.show_id = 0
+        self.show_id_speed = 0
         while app.running == 1:
             while app.paused == 1:
                 app.idlefn(1000)
@@ -163,29 +167,34 @@ class TouchTask:
         #con(app,f"len of mySpirtes = {len(self.mySprites)}")
         flag_reward_updated = 0
         while t.ms()<self.params['iti']:
-            MD,_ = self.MT.get_motion_index()
+            MD,_ = self.MT.update_frame_buffer(self)
+            MD,_ = self.MT.get_motion_index(2) #Repead it to avoid sudden motion after reward. 
             Mapping_scale = self.params['Mapping_scale']
-            show_id = round(MD/Mapping_scale)
-            if show_id >= self.numStim:
-                show_id = self.numStim-1
-            elif show_id <= 1:
-                show_id = 1
+            total_a = MD/Mapping_scale-self.params['Downward_acc']
+            self.show_id_speed = self.show_id_speed + total_a
+            if self.show_id_speed > 30:
+                self.show_id_speed = 30
+            self.show_id = self.show_id + self.show_id_speed
+            if self.show_id >= self.numStim:
+                self.show_id = self.numStim-1
+            elif self.show_id <= 1:
+                self.show_id = 1
         
-            self.mySprites[show_id].on()
-            app.globals.dlist.add(self.mySprites[show_id])
+            self.mySprites[self.show_id].on()
+            app.globals.dlist.add(self.mySprites[self.show_id])
             app.globals.dlist.update()
             app.fb.flip()
-            self.mySprites[show_id].off()
-            app.globals.dlist.delete(self.mySprites[show_id])
+            self.mySprites[self.show_id].off()
+            app.globals.dlist.delete(self.mySprites[self.show_id])
             
             if flag_reward_updated == 0:
-                if show_id > 25:
+                if self.show_id > 25:
                     self.reward_flag.append(0)
                     flag_reward_updated = 1
         if flag_reward_updated == 0:
             self.reward_flag.append(1)
 
-        if sum(self.reward_flag) == self.params['Reward_delay_length']: #threshold is drawn at (Mapping_scale * 25):
+        if sum(self.reward_flag) >= self.params['Reward_delay_length']: #threshold is drawn at (Mapping_scale * 25):
             con(app,"Giving reward...")
             clk_num = self.params['numdrops']
             while clk_num > 0:

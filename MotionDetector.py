@@ -39,16 +39,27 @@ class MotionDetector:
             
         self.frame_buf_0 = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         
-    def get_motion_index(self):
+    def update_frame_buffer(self):
+        for _ in range(5): #Skip_value is 5 by default. This will flush the buffer. 
+            self.cap.grab()
+        ret,frame = self.cap.retrieve()
+        if not ret:
+            return 0
+        frame_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        self.frame_buf_0 = frame_gray
+        return 1
+    
+    def get_motion_index(self,skip_value):
         """
         Reads a frame, calculates the motion index, and returns the result.
+        skip_value: skip these many frames between comparison. Larger value cause more motion. 
 
         Returns:
             tuple: A tuple containing the motion index and the current frame.
                    Returns (None, None) if the frame could not be read.
         """
         #ret, frame = self.cap.read()
-        for _ in range(5):
+        for _ in range(skip_value):
             self.cap.grab()
         ret,frame = self.cap.retrieve()
         if not ret:
@@ -58,8 +69,6 @@ class MotionDetector:
         
         temp_diff = cv2.absdiff(frame_gray, self.frame_buf_0)
         
-        # Update the background model for the next frame
-        self.frame_buf_0 = frame_gray
         
         _, threshold_diff = cv2.threshold(temp_diff, self.threshold, 255, cv2.THRESH_TOZERO)
         
