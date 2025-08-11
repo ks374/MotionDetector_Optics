@@ -78,7 +78,7 @@ class TouchTask:
             ("Stim_size","10",is_int,"the size of the jumping fixation point"),
             
             ("Task Params", None, None),
-            ("Mapping_scale","2500",is_int,"The scale from motion_index to upward acceleration. "),
+            ("Mapping_scale","25000",is_int,"The scale from motion_index to upward acceleration. "),
             ("iti", "200", is_int, "Inter-trial interval"),
             ("Reward_delay_length","2",is_int,"The monkey have to sit still for this many rounds to get reward"),
             ("Downward_acc","1",is_float,"Downward accelleration of the object"),
@@ -167,14 +167,14 @@ class TouchTask:
         #con(app,f"len of mySpirtes = {len(self.mySprites)}")
         flag_reward_updated = 0
         while t.ms()<self.params['iti']:
-            MD,_ = self.MT.update_frame_buffer(self)
+            _ = self.MT.update_frame_buffer()
             MD,_ = self.MT.get_motion_index(2) #Repead it to avoid sudden motion after reward. 
             Mapping_scale = self.params['Mapping_scale']
             total_a = MD/Mapping_scale-self.params['Downward_acc']
             self.show_id_speed = self.show_id_speed + total_a
-            if self.show_id_speed > 30:
-                self.show_id_speed = 30
-            self.show_id = self.show_id + self.show_id_speed
+            if self.show_id_speed > 10:
+                self.show_id_speed = 10
+            self.show_id = round(self.show_id + self.show_id_speed)
             if self.show_id >= self.numStim:
                 self.show_id = self.numStim-1
             elif self.show_id <= 1:
