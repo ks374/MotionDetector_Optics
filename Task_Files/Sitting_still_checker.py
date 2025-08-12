@@ -5,6 +5,8 @@ import numpy as np
 import random
 from collections import deque
 from MotionDetector import MotionDetector
+import datetime
+import csv
 
 def RunSet(app):
     app.taskObject.RunSet(app)
@@ -25,6 +27,11 @@ class TouchTask:
         self.mySprites = list()
         self.stimid = list() 
         self.numStim = 0
+        self.trial_num = 0
+        self.success_rate = 0.0
+        self.trial_outcomes = []
+        self.csv_file = None
+        self.csv_writer = None
         
     def createStimuli(self,app):
         gParam = app.getcommon() 
@@ -40,9 +47,7 @@ class TouchTask:
         #top location and the other 4 will be listed from left to right in the bottom. 
         #Currently all positions are hardcoded. 
         Cur_id = 0
-        Start_pos = (0,-540)
-        End_pos = (0,540)
-        Pos_list = [(0,y) for y in range(-540,540,int(1080/self.numStim))]
+        Pos_list = [(0,y) for y in range(-500,540,int(1080/self.numStim))]
         Stim_size = self.params['Stim_size']
         for i in range(len(Pos_list)):
             img = Sprite(Stim_size,Stim_size,Pos_list[i][0],Pos_list[i][1],fb=app.fb,depth=1,on=0,centerorigin=1)
@@ -76,11 +81,12 @@ class TouchTask:
             ("Stim Presentation Params", None, None), 
             ("bg_during", "(10, 10, 10)", is_color, "The background color during stimulus presentation"),
             ("Stim_size","10",is_int,"the size of the jumping fixation point"),
+            ("Reward_delay_length","2",is_int,"The monkey have to sit still for this many rounds to get reward"),
+            ("log_path","/home/lab/temp_Chenghang/",is_any,"path to save the log file"),
             
             ("Task Params", None, None),
             ("Mapping_scale","25000",is_int,"The scale from motion_index to upward acceleration. "),
             ("iti", "200", is_int, "Inter-trial interval"),
-            ("Reward_delay_length","2",is_int,"The monkey have to sit still for this many rounds to get reward"),
             ("Downward_acc","1",is_float,"Downward accelleration of the object"),
             #"stim_duration", "300", is_int, "Stimulus presentation time"),
             
@@ -94,10 +100,13 @@ class TouchTask:
         self.myTaskParams.save()
         self.myTaskButton.destroy()
         self.myTaskNotebook.destroy()
-        self.myTaskParams.destroy()
+        #self.myTaskParams.destroy()
         del self.mySprites
         del self.SpriteLine
-        del Self.SpriteBlock
+        del self.SpriteBlock
+        if self.csv_file:
+            self.csv_file.close()
+
     
     def toggle_photo_diode(self,app):
         app.globals.dlist.update()
@@ -108,9 +117,10 @@ class TouchTask:
     def RunSet(self,app):
         app.tally(clear=1)
         P = self.myTaskParams.check(mergewith=app.getcommon())
-        parames = self.myTaskParams.check()
+        params = self.myTaskParams.check()
     
         self.createStimuli(app)
+        self.setup_csv_file(app,self.params['log_path'])
         
         app.paused = 0
         app.running = 1
@@ -131,6 +141,17 @@ class TouchTask:
         result,t = self.RunTrial(app,t)
         return 1
     
+    def setup_csv_file(self,app,log_path):
+        filename = f"{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}_sitting_task.csv"
+        filename = log_path + filename
+        try:
+            self.csv_file = open(filename,'w',newline='')
+            self.csv_writer = csv.writer(self.csv_file)
+            self.csv_writer.writerow(['Index', 'Time', 'Reward', 'MD', 'Cur_obj_speed', 'Cur_obj_pos'])
+            con(app,f"CSV file created: {filename}")
+        except IOError as e:
+            con(app,f"Error creating CSV file:{e}",'red')
+
     def RunTrial(self,app,t):
         P = self.myTaskParams.check(mergewith=app.getcommon())
         params = self.myTaskParams.check()
@@ -174,6 +195,8 @@ class TouchTask:
             self.show_id_speed = self.show_id_speed + total_a
             if self.show_id_speed > 10:
                 self.show_id_speed = 10
+            elif self.show_id_speed < -30:
+                self.show_id_speed = -30
             self.show_id = round(self.show_id + self.show_id_speed)
             if self.show_id >= self.numStim:
                 self.show_id = self.numStim-1
@@ -194,6 +217,7 @@ class TouchTask:
         if flag_reward_updated == 0:
             self.reward_flag.append(1)
 
+        reward_given = False
         if sum(self.reward_flag) >= self.params['Reward_delay_length']: #threshold is drawn at (Mapping_scale * 25):
             con(app,"Giving reward...")
             clk_num = self.params['numdrops']
@@ -202,8 +226,19 @@ class TouchTask:
                 app.idlefn(150)
                 clk_num -= 1
             result = 1
+            reward_given = True
         else:
             con(app,"Wrong, not giving reward")
             result = 0
+            reward_given = False
+
+        self.trial_num += 1
+        self.trial_outcomes.append(reward_given)
+        success_count = sum(self.trial_outcomes)
+        self.success_rate = (success_count/self.trial_num) * 100
+        con(app, f"Trial {self.trial_num}: Reward given: {reward_given}. Current success rate: {self.success_rate:.2f}%")
+
+        if self.csv_writer:
+            self.csv_writer.writerow([self.trial_num, datetime.datetime.now().isoformat(), reward_given, MD, self.show_id_speed, self.show_id])
 
         return result,t
