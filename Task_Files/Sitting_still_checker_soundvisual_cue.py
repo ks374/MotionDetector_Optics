@@ -121,7 +121,7 @@ class TouchTask:
         parames = self.myTaskParams.check()
     
         self.createStimuli(app)
-        self.setup_csv_file(app)
+        self.setup_csv_file(app,self.params['log_path'])
         
         app.paused = 0
         app.running = 1
@@ -216,7 +216,7 @@ class TouchTask:
                     flag_reward_updated = 1
         if flag_reward_updated == 0:
             self.reward_flag.append(1)
-            if pg.mixer.get.busy():
+            if pg.mixer.get_busy():
                 self.sound_cue.stop()
             
         if flag_reward_updated == 0:
